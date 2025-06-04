@@ -12,9 +12,11 @@ class CentrateaServer:
         self.attempts = {}
         
     def generate_secret_number(self):
-        digits = list(range(10))
-        random.shuffle(digits)
-        return ''.join(map(str, digits[:4]))
+        while True:
+            digits = list(range(10))
+            random.shuffle(digits)
+            if digits[0] != 0:
+                return ''.join(map(str, digits[:4]))
     
     def calculate_score(self, guess, secret):
         centrate = 0
@@ -49,7 +51,12 @@ class CentrateaServer:
             self.attempts[client_name] = 0
             
             print(f"Client {client_name} conectat de la {address}")
-            client_socket.send("Conectat cu succes! Ghiceste numarul de 4 cifre diferite.".encode())
+            welcome_message = (
+                f"Conectat cu succes! Ghiceste numarul de 4 cifre diferite. "
+                f"Sunt {len(self.clients)} jucatori conectati."
+            )
+            client_socket.send(welcome_message.encode())
+            self.broadcast_message(f"Jucatorul {client_name} s-a alaturat jocului!", client_socket)
             
             while True:
                 guess = client_socket.recv(1024).decode().strip()
@@ -71,10 +78,11 @@ class CentrateaServer:
                     client_socket.send(f"Felicitari! Ai ghicit numarul {self.secret_number}!".encode())
                     
                     self.secret_number = self.generate_secret_number()
-                    self.attempts = {name: 0 for name in self.attempts}
+                    self.attempts = {name: 0 for name in self.clients.values()}
                     
                     print(f"Numar nou generat: {self.secret_number}")
-                    self.broadcast_message("Joc nou inceput!")
+                    new_game_message = "Joc nou inceput! Un nou numar a fost generat."
+                    self.broadcast_message(new_game_message)
                 else:
                     response = f"Centrate: {centrate}, Necentrate: {necentrate}"
                     client_socket.send(response.encode())
@@ -83,7 +91,11 @@ class CentrateaServer:
             print(f"Eroare cu clientul {address}: {e}")
         finally:
             if client_socket in self.clients:
+                disconnected_name = self.clients[client_socket]
                 del self.clients[client_socket]
+                if disconnected_name in self.attempts:
+                    del self.attempts[disconnected_name]
+                self.broadcast_message(f"Jucatorul {disconnected_name} s-a deconectat.")
             client_socket.close()
     
     def start_server(self):

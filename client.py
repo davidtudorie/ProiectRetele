@@ -1,5 +1,6 @@
 import socket
 import threading
+import sys
 
 class CentrateaClient:
     def __init__(self, host='localhost', port=12345):
@@ -7,16 +8,25 @@ class CentrateaClient:
         self.port = port
         self.client_socket = None
         self.running = False
+        self.name = None
     
     def receive_messages(self):
         while self.running:
             try:
                 message = self.client_socket.recv(1024).decode()
                 if message:
-                    print(f"Server: {message}")
+                    if self.name in message:
+                        print(f"\n{message}")
+                    else:
+                        print(f"\nServer: {message}")
+                    print("Ghiceste numarul (4 cifre diferite) sau 'quit' pentru a iesi: ", end='', flush=True)
                 else:
+                    print("\nConexiunea cu serverul a fost inchisa.")
+                    self.running = False
                     break
             except:
+                print("\nConexiunea cu serverul a fost pierduta.")
+                self.running = False
                 break
     
     def connect_to_server(self):
@@ -24,8 +34,13 @@ class CentrateaClient:
             self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.client_socket.connect((self.host, self.port))
             
-            name = input("Introdu numele tau: ")
-            self.client_socket.send(name.encode())
+            while True:
+                self.name = input("Introdu numele tau (minim 3 caractere): ").strip()
+                if len(self.name) >= 3:
+                    break
+                print("Numele trebuie sa aiba minim 3 caractere!")
+            
+            self.client_socket.send(self.name.encode())
             
             response = self.client_socket.recv(1024).decode()
             print(f"Server: {response}")
@@ -42,35 +57,55 @@ class CentrateaClient:
             
             return True
             
+        except ConnectionRefusedError:
+            print("Nu s-a putut realiza conexiunea cu serverul. Verifica daca serverul ruleaza.")
+            return False
         except Exception as e:
             print(f"Eroare la conectare: {e}")
             return False
+    
+    def validate_guess(self, guess):
+        if guess.lower() == 'quit':
+            return True, None
+        
+        if len(guess) != 4 or not guess.isdigit():
+            print("Eroare: Introdu exact 4 cifre!")
+            return False, None
+        
+        if len(set(guess)) != 4:
+            print("Eroare: Cifrele trebuie sa fie diferite!")
+            return False, None
+            
+        return True, guess
     
     def play_game(self):
         if not self.connect_to_server():
             return
         
-        print("Scrie 'quit' pentru a iesi din joc")
+        print("\nInstructiuni:")
+        print("- Ghiceste un numar de 4 cifre diferite")
+        print("- Vei primi feedback despre cate cifre sunt:")
+        print("  * Centrate (cifre corecte pe pozitia corecta)")
+        print("  * Necentrate (cifre corecte dar pe pozitie gresita)")
+        print("- Scrie 'quit' pentru a iesi din joc\n")
         
         try:
             while self.running:
-                guess = input("Ghiceste numarul (4 cifre diferite): ")
+                guess = input("Ghiceste numarul (4 cifre diferite) sau 'quit' pentru a iesi: ")
                 
-                if guess.lower() == 'quit':
+                valid, validated_guess = self.validate_guess(guess)
+                if not valid:
+                    continue
+                    
+                if validated_guess is None:
                     break
                 
-                if len(guess) != 4 or not guess.isdigit():
-                    print("Introdu exact 4 cifre!")
-                    continue
-                
-                if len(set(guess)) != 4:
-                    print("Cifrele trebuie sa fie diferite!")
-                    continue
-                
-                self.client_socket.send(guess.encode())
+                self.client_socket.send(validated_guess.encode())
                 
         except KeyboardInterrupt:
             print("\nIesire din joc...")
+        except Exception as e:
+            print(f"\nEroare neasteptata: {e}")
         finally:
             self.running = False
             if self.client_socket:
