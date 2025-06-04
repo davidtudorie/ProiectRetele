@@ -36,8 +36,8 @@ Centratea este un joc multiplayer in care jucatorii incearca sa ghiceasca un num
    ```
 3. Introdu un nume unic pentru a te conecta la server.
 
-### Comenzi disponibile pentru client
+### Comenzi client
 
-- **Ghicirea numarului**: Introdu un numar de 4 cifre diferite.
+- **numar**: Introdu un numar de 4 cifre diferite.
 - **`stats`**: Afiseaza numarul de incercari ale celorlalti jucatori.
 - **`quit`**: Deconecteaza-te de la server.
