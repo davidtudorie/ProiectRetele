@@ -49,37 +49,48 @@ class CentrateaServer:
                 
             self.clients[client_socket] = client_name
             self.attempts[client_name] = 0
-            
+
             print(f"Client {client_name} conectat de la {address}")
+            existing_players = [name for sock, name in self.clients.items() if sock != client_socket]
+            if existing_players:
+                players_message = "Jucatori conectati: " + ", ".join(existing_players)
+            else:
+                players_message = "Esti primul jucator conectat."
             welcome_message = (
                 f"Conectat cu succes! Ghiceste numarul de 4 cifre diferite. "
-                f"Sunt {len(self.clients)} jucatori conectati."
+                f"Sunt {len(self.clients)} jucatori conectati.\n{players_message}"
             )
             client_socket.send(welcome_message.encode())
             self.broadcast_message(f"Jucatorul {client_name} s-a alaturat jocului!", client_socket)
             
             while True:
                 guess = client_socket.recv(1024).decode().strip()
-                
+                if guess.lower() == "quit":
+                    break
+                if guess.lower() == "stats":
+                    stats = []
+                    for name, tries in self.attempts.items():
+                        if name != client_name:
+                            stats.append(f"{name}: {tries} incercari")
+                    if stats:
+                        client_socket.send(("Statistici jucatori:\n" + "\n".join(stats)).encode())
+                    else:
+                        client_socket.send("Nu exista alti jucatori conectati.".encode())
+                    continue
                 if not guess or len(guess) != 4 or not guess.isdigit():
                     client_socket.send("Introdu un numar de 4 cifre!".encode())
                     continue
-                
                 if len(set(guess)) != 4:
                     client_socket.send("Cifrele trebuie sa fie diferite!".encode())
                     continue
-                
                 self.attempts[client_name] += 1
                 centrate, necentrate = self.calculate_score(guess, self.secret_number)
-                
                 if centrate == 4:
                     win_message = f"{client_name} a ghicit numarul {self.secret_number} in {self.attempts[client_name]} incercari!"
                     self.broadcast_message(win_message)
                     client_socket.send(f"Felicitari! Ai ghicit numarul {self.secret_number}!".encode())
-                    
                     self.secret_number = self.generate_secret_number()
                     self.attempts = {name: 0 for name in self.clients.values()}
-                    
                     print(f"Numar nou generat: {self.secret_number}")
                     new_game_message = "Joc nou inceput! Un nou numar a fost generat."
                     self.broadcast_message(new_game_message)
@@ -96,6 +107,7 @@ class CentrateaServer:
                 if disconnected_name in self.attempts:
                     del self.attempts[disconnected_name]
                 self.broadcast_message(f"Jucatorul {disconnected_name} s-a deconectat.")
+                print(f"Client {disconnected_name} s-a deconectat de la {address}")
             client_socket.close()
     
     def start_server(self):

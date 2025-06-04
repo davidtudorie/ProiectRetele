@@ -1,6 +1,7 @@
 import socket
 import threading
 import sys
+import time
 
 class CentrateaClient:
     def __init__(self, host='localhost', port=12345):
@@ -16,16 +17,12 @@ class CentrateaClient:
                 message = self.client_socket.recv(1024).decode()
                 if message:
                     if self.name in message:
-                        print(f"\n{message}")
+                        print(f"{message}")
                     else:
-                        print(f"\nServer: {message}")
-                    print("Ghiceste numarul (4 cifre diferite) sau 'quit' pentru a iesi: ", end='', flush=True)
-                else:
-                    print("\nConexiunea cu serverul a fost inchisa.")
-                    self.running = False
-                    break
+                        print(f"Server: {message}")
+                    time.sleep(0.1)
             except:
-                print("\nConexiunea cu serverul a fost pierduta.")
+                print("Conexiunea cu serverul a fost inchisa.")
                 self.running = False
                 break
     
@@ -65,8 +62,8 @@ class CentrateaClient:
             return False
     
     def validate_guess(self, guess):
-        if guess.lower() == 'quit':
-            return True, None
+        if guess.lower() == 'quit' or guess.lower() == 'stats':
+            return True, guess
         
         if len(guess) != 4 or not guess.isdigit():
             print("Eroare: Introdu exact 4 cifre!")
@@ -82,30 +79,35 @@ class CentrateaClient:
         if not self.connect_to_server():
             return
         
-        print("\nInstructiuni:")
+        print("Instructiuni:")
         print("- Ghiceste un numar de 4 cifre diferite")
         print("- Vei primi feedback despre cate cifre sunt:")
         print("  * Centrate (cifre corecte pe pozitia corecta)")
         print("  * Necentrate (cifre corecte dar pe pozitie gresita)")
-        print("- Scrie 'quit' pentru a iesi din joc\n")
+        print("- Scrie 'quit' pentru a iesi din joc")
+        print("- Scrie 'stats' pentru a vedea incercarile celorlalti jucatori\n")
         
         try:
             while self.running:
-                guess = input("Ghiceste numarul (4 cifre diferite) sau 'quit' pentru a iesi: ")
+                guess = input("Ghiceste numarul (4 cifre diferite), 'stats' sau 'quit': ")
                 
                 valid, validated_guess = self.validate_guess(guess)
                 if not valid:
                     continue
-                    
-                if validated_guess is None:
+                
+                if validated_guess == "quit":
+                    try:
+                        self.client_socket.send("quit".encode())
+                    except:
+                        pass
                     break
                 
                 self.client_socket.send(validated_guess.encode())
                 
         except KeyboardInterrupt:
-            print("\nIesire din joc...")
+            print("Iesire din joc...")
         except Exception as e:
-            print(f"\nEroare neasteptata: {e}")
+            print(f"Eroare neasteptata: {e}")
         finally:
             self.running = False
             if self.client_socket:
